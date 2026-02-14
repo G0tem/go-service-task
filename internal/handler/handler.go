@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/G0tem/go-service-task/internal/config"
 	"github.com/G0tem/go-service-task/internal/model"
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/golang-jwt/jwt/v5"
 	fiberSwagger "github.com/swaggo/fiber-swagger"
 	"gorm.io/gorm"
@@ -27,6 +29,28 @@ func NewHandler(db *gorm.DB, rds *redis.Client, cfg *config.Config) *Handler {
 }
 
 func (h *Handler) SetupRoutes(app *fiber.App) {
+	// Rate limiter middleware (100 запросов/мин) из допов ТЗ.
+	rateLimit := limiter.New(limiter.Config{
+		Max:        100,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			// Извлекаем пользователя из JWT
+			user := c.Locals("user")
+			if user != nil {
+				if u, ok := user.(*model.User); ok {
+					return fmt.Sprintf("rate_limit:%d", u.ID)
+				}
+			}
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error":       "too many requests",
+				"retry_after": 60,
+			})
+		},
+	})
+
 	api := app.Group("api")
 	v1 := api.Group("v1")
 
@@ -34,6 +58,7 @@ func (h *Handler) SetupRoutes(app *fiber.App) {
 	docs.Get("*", fiberSwagger.WrapHandler)
 
 	auth := v1.Group("auth")
+	auth.Use(rateLimit) // Для публичных эндпоинтов лимит по IP
 	// Публичные маршруты - без проверки JWT
 	auth.Post("login", h.login)
 	auth.Post("register", h.register)
@@ -41,6 +66,7 @@ func (h *Handler) SetupRoutes(app *fiber.App) {
 	// Защищенные маршруты с middleware JWT
 	protected := v1.Group("/")
 	protected.Use(JWTMiddleware(h.cfg.SecretKey))
+	protected.Use(rateLimit)
 
 	// Auth protected
 	protected.Get("auth/get-me", h.getMe)
