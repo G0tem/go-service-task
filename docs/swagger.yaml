@@ -1,0 +1,546 @@
+basePath: /api/v1
+definitions:
+  types.FailureErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  types.FailureResponse:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  types.GetMeResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+    type: object
+  types.LoginRequest:
+    properties:
+      identity:
+        type: string
+      password:
+        type: string
+    type: object
+  types.LoginSuccessData:
+    properties:
+      token:
+        type: string
+    type: object
+  types.LoginSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/types.LoginSuccessData'
+      status:
+        type: string
+    type: object
+  types.RegisterRequest:
+    properties:
+      confirmPassword:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  types.SuccessResponse:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  types.TaskCreateRequest:
+    properties:
+      assignee_id:
+        type: string
+      description:
+        type: string
+      status:
+        description: todo, in_progress, done, cancelled
+        type: string
+      team_id:
+        type: string
+      title:
+        type: string
+    type: object
+  types.TaskResponse:
+    properties:
+      assignee_id:
+        type: string
+      created_by:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+      team_id:
+        type: string
+      title:
+        type: string
+    type: object
+  types.TaskUpdateRequest:
+    properties:
+      assignee_id:
+        type: string
+      description:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  types.TeamCreateRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  types.TeamInviteRequest:
+    properties:
+      role:
+        description: '"owner" или "member" (по умолчанию member)'
+        type: string
+      user_id:
+        type: string
+    type: object
+  types.TeamListResponse:
+    properties:
+      teams:
+        items:
+          $ref: '#/definitions/types.TeamResponse'
+        type: array
+    type: object
+  types.TeamResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: This is an API of auth-service
+  title: Service task  Swagger
+  version: "1.0"
+paths:
+  /auth/get-me:
+    get:
+      description: Get current user ID and email
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.GetMeResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get current user info
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login
+      parameters:
+      - description: username or email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LoginSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      summary: Login
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      description: Refresh jwt token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Refresh jwt token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register
+      parameters:
+      - description: username or email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LoginSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      summary: Register
+      tags:
+      - auth
+  /system/invalid-assignees:
+    get:
+      description: '"Найти задачи, где assignee не является членом команды этой задачи".'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TaskResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: getTasksWithInvalidAssignee оборачивает запрос info
+      tags:
+      - complex-sql
+  /system/teams-stats:
+    get:
+      description: '"Получить для каждой команды: название, количество участников,
+        количество задач в статусе done за последние 7 дней".'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TaskResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: getTeamStats оборачивает сложный SQL info
+      tags:
+      - complex-sql
+  /system/teams-top-creators:
+    get:
+      description: '"Получить топ-3 пользователя по количеству созданных задач в каждой
+        команде за месяц".'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TaskResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: getTopCreatorsByTeam оборачивает сложный SQL с оконной функцией info
+      tags:
+      - complex-sql
+  /tasks:
+    get:
+      description: ListTasks возвращает список задач с фильтрами и пагинацией.
+      parameters:
+      - description: team ID
+        in: query
+        name: team_id
+        type: string
+      - description: status
+        in: query
+        name: status
+        type: string
+      - description: assignee ID
+        in: query
+        name: assignee_id
+        type: string
+      - description: page
+        in: query
+        name: page
+        type: string
+      - description: page_size
+        in: query
+        name: page_size
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TaskResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: listTasks info
+      tags:
+      - task
+    post:
+      description: CreateTask создаёт задачу для команды (только член команды).
+      parameters:
+      - description: task data
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/types.TaskCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TaskResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: createTask info
+      tags:
+      - task
+  /tasks/{id}:
+    put:
+      description: UpdateTask обновляет задачу и пишет историю изменений.
+      parameters:
+      - description: task ID
+        in: path
+        name: id
+        type: string
+      - description: task data
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/types.TaskUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TaskResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: updateTask info
+      tags:
+      - task
+  /tasks/{id}/history:
+    get:
+      description: GetTaskHistory возвращает историю изменений задачи.
+      parameters:
+      - description: task ID
+        in: path
+        name: id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TaskResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: getTaskHistory info
+      tags:
+      - task
+  /teams:
+    get:
+      description: ListUserTeams возвращает список команд, где состоит текущий пользователь.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TeamListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: listUserTeams info
+      tags:
+      - teams
+    post:
+      description: CreateTeam создает команду и делает текущего пользователя её owner.
+      parameters:
+      - description: team data
+        in: body
+        name: team
+        required: true
+        schema:
+          $ref: '#/definitions/types.TeamCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TeamResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: createTeam info
+      tags:
+      - teams
+  /teams/{id}/invite:
+    post:
+      description: InviteToTeam приглашает пользователя в команду (может только owner).
+      parameters:
+      - description: team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: invite data
+        in: body
+        name: invite
+        required: true
+        schema:
+          $ref: '#/definitions/types.TeamInviteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.TeamListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.FailureResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.FailureErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: inviteToTeam info
+      tags:
+      - teams
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    description: Description for what is this security definition being used
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
