@@ -1,0 +1,94 @@
+services:
+  task-service:
+    container_name: task-service-container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    networks:
+      - task-network
+    ports:
+      - "${HTTP_PORT:-8001}:${HTTP_PORT:-8001}"
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  task-redis:
+    container_name: task-redis-container
+    restart: always
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - task-redis-server_data:/data
+    command: redis-server --appendonly no --save "" --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  task-prometheus:
+    image: prom/prometheus:v2.42.0
+    container_name: task-prometheus-container
+    ports:
+      - "9090:9090"
+    command: 
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus" 
+      - "--web.external-url=http://127.0.0.1:9090"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries" 
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    volumes:
+      - task-prom_data:/prometheus
+      - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - task-network
+
+  task-message-broker:
+    container_name: task-message-broker-container
+    image: rabbitmq:3.13-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST}
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+    volumes:
+      - task-message-broker_data:/var/lib/rabbitmq
+    networks:
+      - task-network
+
+  task-mysql-db:
+    container_name: task-mysql-db-container
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    networks:
+      - task-network
+    volumes:
+      - task-mysql-db_data:/var/lib/mysql
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${MYSQL_PORT}:3306"
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  task-message-broker_data:
+  task-redis-server_data:
+  task-prom_data:
+  task-mysql-db_data:
+
+
+networks:
+  task-network:
+    driver: bridge 
