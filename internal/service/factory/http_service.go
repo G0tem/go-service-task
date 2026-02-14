@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -18,20 +19,23 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func httpService(cfg *config.Config) error {
+func httpService(cfg *config.Config) (*fiber.App, error) {
 	db, err := NewDB(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	rds, err := NewRedis(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	handlers := handler.NewHandler(db, rds, cfg)
 
-	app := fiber.New(fiber.Config{})
+	app := fiber.New(fiber.Config{
+		// Добавляем настройки для graceful shutdown
+		DisableStartupMessage: false,
+	})
 
 	swaggerCfg := swagger.Config{
 		BasePath: "/api/v1",
@@ -55,53 +59,107 @@ func httpService(cfg *config.Config) error {
 		return c.SendStatus(404) // => 404 "Not Found"
 	})
 
-	addr := fmt.Sprintf(":%v", cfg.HttpPort)
-	log.Info().Str("addr", addr).Msg("starting HTTP server")
-	err = app.Listen(addr)
-	if err != nil {
-		log.Error().Msgf("Unexpected error: %v", err)
-		return err
-	}
-	log.Info().Msgf("Setup http port %v", cfg.HttpPort)
-
-	return nil
+	return app, nil
 }
 
 func StartHttpService(cfg *config.Config) error {
+	serverErrors := make(chan error, 1)
 	signalChannel := make(chan os.Signal, 1)
+
 	signal.Notify(
 		signalChannel,
-		syscall.SIGUSR2, // Use for restart listening port
+		syscall.SIGUSR2,
 		syscall.SIGHUP,
 		syscall.SIGQUIT,
 		syscall.SIGTERM,
+		syscall.SIGINT,
 		syscall.SIGSEGV,
 	)
 
 	log.Info().Msgf("Setup http port %v", cfg.HttpPort)
 
-	go httpService(cfg)
+	// Создаем сервер
+	app, err := httpService(cfg)
+	if err != nil {
+		return err
+	}
 
+	// Запускаем сервер
+	addr := fmt.Sprintf(":%v", cfg.HttpPort)
+	go func() {
+		log.Info().Str("addr", addr).Msg("starting HTTP server")
+		if err := app.Listen(addr); err != nil {
+			serverErrors <- err
+		}
+	}()
+
+	// Ожидаем сигналы или ошибки сервера
 	for {
-		signalEvent := <-signalChannel
-		switch signalEvent {
-		case syscall.SIGUSR2:
-			time.Sleep(5 * time.Second)
-			go httpService(cfg)
-		case syscall.SIGQUIT,
-			syscall.SIGTERM,
-			syscall.SIGINT,
-			syscall.SIGKILL:
-			log.Error().Msgf("Signal event %q", signalEvent)
-			return nil
-		case syscall.SIGHUP:
-			log.Error().Msgf("Signal event %q", signalEvent)
-			return fmt.Errorf("signal hang up")
-		case syscall.SIGSEGV:
-			log.Error().Msgf("Signal event %q", signalEvent)
-			return fmt.Errorf("segmentation violation")
-		default:
-			log.Error().Msgf("Unexpected signal %q", signalEvent)
+		select {
+		case err := <-serverErrors:
+			// Критическая ошибка сервера
+			log.Error().Err(err).Msg("HTTP server error")
+			return err
+
+		case signalEvent := <-signalChannel:
+			switch signalEvent {
+			case syscall.SIGUSR2:
+				log.Info().Msg("Received SIGUSR2, restarting server...")
+
+				// Graceful shutdown текущего сервера
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				if err := app.ShutdownWithContext(ctx); err != nil {
+					log.Error().Err(err).Msg("Error during server shutdown")
+				}
+
+				// Запускаем новый сервер
+				time.Sleep(5 * time.Second)
+
+				newApp, err := httpService(cfg)
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to create new server instance")
+					continue
+				}
+
+				// Обновляем ссылку
+				app = newApp
+
+				// Запускаем новый сервер
+				go func() {
+					if err := app.Listen(addr); err != nil {
+						serverErrors <- err
+					}
+				}()
+
+			case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
+				log.Info().Msgf("Received signal %q, starting graceful shutdown...", signalEvent)
+
+				// Создаем контекст с таймаутом для graceful shutdown
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				// Пытаемся gracefully завершить сервер
+				if err := app.ShutdownWithContext(ctx); err != nil {
+					log.Error().Err(err).Msg("Error during server shutdown")
+					return err
+				}
+
+				log.Info().Msg("HTTP server gracefully stopped")
+				return nil
+
+			case syscall.SIGHUP:
+				log.Error().Msgf("Signal event %q", signalEvent)
+				return fmt.Errorf("signal hang up")
+
+			case syscall.SIGSEGV:
+				log.Error().Msgf("Signal event %q", signalEvent)
+				return fmt.Errorf("segmentation violation")
+
+			default:
+				log.Error().Msgf("Unexpected signal %q", signalEvent)
+			}
 		}
 	}
 }
