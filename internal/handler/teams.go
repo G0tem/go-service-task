@@ -7,6 +7,7 @@ import (
 	"github.com/G0tem/go-service-task/internal/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -228,6 +229,12 @@ func (h *Handler) inviteToTeam(c *fiber.Ctx) error {
 			Message: "failed to invite user to team",
 			Error:   err.Error(),
 		})
+	}
+
+	// Запрос в mail сервис для реализации Circuit Breaker
+	err = h.sendInviteEmailWithBreaker(user.Email, teamID, inviteUserID)
+	if err != nil {
+		log.Warn().Msgf("[inviteToTeam] Error send notify mail, Test Circuit Breaker, err: %s", err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(types.SuccessResponse{

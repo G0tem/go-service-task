@@ -25,6 +25,8 @@ type Config struct {
 
 	RedisAddr string `binding:"required" envconfig:"REDIS_ADDR"`
 	RedisDB   int    `binding:"required" envconfig:"REDIS_DB"`
+
+	MailUrl string `binding:"required" envconfig:"MAIL_SERVICE"`
 }
 
 func LoadConfig() Config {
@@ -47,5 +49,7 @@ func LoadConfig() Config {
 
 		RedisAddr: os.Getenv("REDIS_ADDR"),
 		RedisDB:   internal.ParseInt(os.Getenv("REDIS_DB"), 0),
+
+		MailUrl: os.Getenv("MAIL_SERVICE"),
 	}
 }

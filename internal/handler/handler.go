@@ -10,23 +10,47 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/rs/zerolog/log"
+	"github.com/sony/gobreaker"
 	fiberSwagger "github.com/swaggo/fiber-swagger"
 	"gorm.io/gorm"
 )
 
 type Handler struct {
-	db      *gorm.DB
-	redis   *redis.Client
-	cfg     *config.Config
-	metrics *fiberprometheus.FiberPrometheus // Добавляем метрики
+	db           *gorm.DB
+	redis        *redis.Client
+	cfg          *config.Config
+	metrics      *fiberprometheus.FiberPrometheus // Добавляем метрики
+	emailBreaker *gobreaker.CircuitBreaker        // Добавляем CircuitBreaker
 }
 
 func NewHandler(db *gorm.DB, rds *redis.Client, cfg *config.Config) *Handler {
+	// Настраиваем Circuit Breaker для email сервиса
+	settings := gobreaker.Settings{
+		Name:        "email-service",
+		MaxRequests: 3,                // сколько пробных запросов в HALF-OPEN
+		Interval:    10 * time.Second, // сброс счетчиков
+		Timeout:     30 * time.Second, // сколько ждать перед переходом в HALF-OPEN
+
+		// Условие когда перейти в OPEN
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			// Открываем цепь если > 50% ошибок и было минимум 3 запроса
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.5
+		},
+
+		// Логируем изменения состояния
+		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+			log.Info().Msgf("Circuit Breaker '%s' changed from %v to %v", name, from, to)
+		},
+	}
+
 	return &Handler{
-		db:      db,
-		cfg:     cfg,
-		redis:   rds,
-		metrics: fiberprometheus.New("task-management-service"),
+		db:           db,
+		cfg:          cfg,
+		redis:        rds,
+		metrics:      fiberprometheus.New("task-management-service"),
+		emailBreaker: gobreaker.NewCircuitBreaker(settings),
 	}
 }
 
