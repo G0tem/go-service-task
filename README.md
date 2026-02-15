@@ -14,17 +14,16 @@
 
 Документация доступна по url ```http://localhost:8001/api/v1/docs```  
 
+*Circuit breaker и Rate limiting реализованы в "NewHandler"   
+*Graceful shutdown реализован в "StartHttpService"  
+
 Prometheus развернут на url ```http://localhost:9090```  
 Примеры PromQL запросов:  
-```rate(http_requests_total[1m]```  
-Количество ошибок (статусы >= 400)  
-```rate(http_requests_total{status=~"4..|5.."}[1m])```  
-Процент ошибок  
-```sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100```  
-95-й перцентиль времени ответа  
-```histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, path))```  
-Среднее время ответа по эндпоинтам  
-```rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])```   
+```rate(http_requests_total[1m]``` - Количество запросов.  
+```rate(http_requests_total{status=~"4..|5.."}[1m])``` - Количество ошибок (статусы >= 400).  
+```sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100``` - Процент ошибок.  
+```histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, path))``` - 95-й перцентиль времени ответа.    
+```rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])``` - Среднее время ответа по эндпоинтам.  
 
 Также метрики доступны по адресу основного сервиса ```http://localhost:8001/metric``` - с него prometheus собирает метрики (конфиг находится configs/prometheus/prometheus.yml)   
 Для удобства отображения создается борд в grafana с инсточником данных из prometheus.(примеры работ с графаной есть в директории https://github.com/G0tem/go-service-base)  
