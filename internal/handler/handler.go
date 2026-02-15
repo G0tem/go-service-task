@@ -6,6 +6,7 @@ import (
 
 	"github.com/G0tem/go-service-task/internal/config"
 	"github.com/G0tem/go-service-task/internal/model"
+	"github.com/ansrivas/fiberprometheus/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -15,20 +16,25 @@ import (
 )
 
 type Handler struct {
-	db    *gorm.DB
-	redis *redis.Client
-	cfg   *config.Config
+	db      *gorm.DB
+	redis   *redis.Client
+	cfg     *config.Config
+	metrics *fiberprometheus.FiberPrometheus // Добавляем метрики
 }
 
 func NewHandler(db *gorm.DB, rds *redis.Client, cfg *config.Config) *Handler {
 	return &Handler{
-		db:    db,
-		cfg:   cfg,
-		redis: rds,
+		db:      db,
+		cfg:     cfg,
+		redis:   rds,
+		metrics: fiberprometheus.New("task-management-service"),
 	}
 }
 
 func (h *Handler) SetupRoutes(app *fiber.App) {
+	h.metrics.RegisterAt(app, "/metrics")
+	app.Use(h.metrics.Middleware)
+
 	// Rate limiter middleware (100 запросов/мин) из допов ТЗ.
 	rateLimit := limiter.New(limiter.Config{
 		Max:        100,
