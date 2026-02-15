@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/G0tem/go-service-task/internal/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -77,4 +78,20 @@ func asString(v any) string {
 	}
 	s, _ := v.(string)
 	return s
+}
+
+func (h *Handler) GetJWT(user *model.User) (string, error) {
+	// Create the Claims
+	claims := jwt.MapClaims{
+		"user_id":  user.ID.String(),
+		"username": user.Username,
+		"email":    user.Email,
+		"exp":      time.Now().Add(time.Hour * 72).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	t, err := token.SignedString([]byte(h.cfg.SecretKey))
+
+	return t, err
 }
