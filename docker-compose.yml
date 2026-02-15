@@ -4,6 +4,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      task-redis:
+        condition: service_healthy
+      task-mysql-db:
+        condition: service_healthy
     env_file:
       - .env
     networks:
