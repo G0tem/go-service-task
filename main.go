@@ -30,8 +30,7 @@ func main() {
 	cfg := config.LoadConfig()
 	zerolog.SetGlobalLevel(zerolog.Level(cfg.LogLevel))
 
-	// We are need >= 2 threads
-	moreThenTwoThreadsRuntime()
+	limitToTwoThreads()
 
 	err := factory.StartHttpService(&cfg)
 
@@ -40,9 +39,11 @@ func main() {
 	}
 }
 
-func moreThenTwoThreadsRuntime() {
-	currentThreadsCount := runtime.GOMAXPROCS(2)
+func limitToTwoThreads() {
+	currentThreadsCount := runtime.GOMAXPROCS(0)
+
+	// Если больше 2, уменьшаем до 2
 	if currentThreadsCount > 2 {
-		runtime.GOMAXPROCS(currentThreadsCount)
+		runtime.GOMAXPROCS(2)
 	}
 }
