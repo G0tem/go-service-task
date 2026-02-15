@@ -10,7 +10,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/golang-jwt/jwt/v5"
 	fiberSwagger "github.com/swaggo/fiber-swagger"
 	"gorm.io/gorm"
 )
@@ -94,20 +93,4 @@ func (h *Handler) SetupRoutes(app *fiber.App) {
 	system.Get("teams-stats", h.getTeamStats)
 	system.Get("teams-top-creators", h.getTopCreatorsByTeam)
 	system.Get("invalid-assignees", h.getTasksWithInvalidAssignee)
-}
-
-func (h *Handler) GetJWT(user *model.User) (string, error) {
-	// Create the Claims
-	claims := jwt.MapClaims{
-		"user_id":  user.ID.String(),
-		"username": user.Username,
-		"email":    user.Email,
-		"exp":      time.Now().Add(time.Hour * 72).Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	t, err := token.SignedString([]byte(h.cfg.SecretKey))
-
-	return t, err
 }

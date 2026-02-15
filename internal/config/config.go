@@ -23,10 +23,6 @@ type Config struct {
 	MysqlMaxOpenConns    int           `default:"100" envconfig:"MYSQL_MAX_OPEN_CONNS"`
 	MysqlConnMaxLifetime time.Duration `default:"1h" envconfig:"MYSQL_CONN_MAX_LIFETIME"`
 
-	RMQConnUrl                string `binding:"required" envconfig:"RMQ_CONN_URL"`
-	RMQMailExchange           string `binding:"required" envconfig:"RMQ_MAIL_EXCHANGE"`
-	RMQMailExchangeAutocreate bool   `binding:"required" envconfig:"RMQ_MAIL_EXCHANGE_AUTOCREATE_ENABLED"`
-
 	RedisAddr string `binding:"required" envconfig:"REDIS_ADDR"`
 	RedisDB   int    `binding:"required" envconfig:"REDIS_DB"`
 }
@@ -48,10 +44,6 @@ func LoadConfig() Config {
 		MysqlMaxIdleConns:    internal.ParseInt(os.Getenv("MYSQL_MAX_IDLE_CONNS"), 10),
 		MysqlMaxOpenConns:    internal.ParseInt(os.Getenv("MYSQL_MAX_OPEN_CONNS"), 100),
 		MysqlConnMaxLifetime: internal.ParseDuration(os.Getenv("MYSQL_CONN_MAX_LIFETIME"), 1*time.Hour),
-
-		RMQConnUrl:                os.Getenv("RMQ_CONN_URL"),
-		RMQMailExchange:           os.Getenv("RMQ_MAIL_EXCHANGE"),
-		RMQMailExchangeAutocreate: internal.ParseBool(os.Getenv("RMQ_MAIL_EXCHANGE_AUTOCREATE_ENABLED")),
 
 		RedisAddr: os.Getenv("REDIS_ADDR"),
 		RedisDB:   internal.ParseInt(os.Getenv("REDIS_DB"), 0),

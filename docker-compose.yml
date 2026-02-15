@@ -50,21 +50,6 @@ services:
     networks:
       - task-network
 
-  task-message-broker:
-    container_name: task-message-broker-container
-    image: rabbitmq:3.13-management
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
-      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST}
-    ports:
-      - "${RABBITMQ_PORT}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
-    volumes:
-      - task-message-broker_data:/var/lib/rabbitmq
-    networks:
-      - task-network
-
   task-mysql-db:
     container_name: task-mysql-db-container
     image: mysql:8.0
@@ -88,7 +73,6 @@ services:
     command: --default-authentication-plugin=mysql_native_password
 
 volumes:
-  task-message-broker_data:
   task-redis-server_data:
   task-prom_data:
   task-mysql-db_data:
