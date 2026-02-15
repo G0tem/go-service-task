@@ -27,8 +27,8 @@ Prometheus развернут на url ```http://localhost:9090```
 Среднее время ответа по эндпоинтам  
 ```rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])```   
 
-Также метрики доступны по адресу основного сервиса ```http://localhost:8001/metric``` - с него prometheus собирает метрики (конфиг находится configs/prometheus/prometheus.yml) 
-Для удобства обображения создается борд в grafana с инсточником данных из prometheus.(примеры работ с графаной есть в директории https://github.com/G0tem/go-service-base)  
+Также метрики доступны по адресу основного сервиса ```http://localhost:8001/metric``` - с него prometheus собирает метрики (конфиг находится configs/prometheus/prometheus.yml)   
+Для удобства отображения создается борд в grafana с инсточником данных из prometheus.(примеры работ с графаной есть в директории https://github.com/G0tem/go-service-base)  
 
 # Техническое задание: Сервис управления задачами с командной работой и историей изменений  
 Цель: Разработать REST API сервис для управления задачами в командах с поддержкой ролевой модели, истории изменений и сложными SQL-запросами.  
