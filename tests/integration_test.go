@@ -13,25 +13,28 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	redisv8 "github.com/go-redis/redis/v8"
+	"github.com/gofiber/fiber/v2"
+	tcmysql "github.com/testcontainers/testcontainers-go/modules/mysql"
+	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
+
 	"github.com/G0tem/go-service-task/internal/config"
 	"github.com/G0tem/go-service-task/internal/handler"
 	"github.com/G0tem/go-service-task/internal/model"
 	"github.com/G0tem/go-service-task/internal/router"
-	"github.com/go-redis/redis/v8"
-	"github.com/gofiber/fiber/v2"
-	"github.com/testcontainers/testcontainers-go/modules/mysql"
-	gormmysql "gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 const testSecretKey = "test-secret-key-for-jwt"
 
 func setupMySQL(t *testing.T) (dsn string, cleanup func()) {
+	t.Helper()
 	ctx := context.Background()
-	container, err := mysql.Run(ctx, "mysql:8.0",
-		mysql.WithDatabase("tasktest"),
-		mysql.WithUsername("user"),
-		mysql.WithPassword("pass"),
+	container, err := tcmysql.Run(ctx, "mysql:8.0",
+		tcmysql.WithDatabase("tasktest"),
+		tcmysql.WithUsername("user"),
+		tcmysql.WithPassword("pass"),
 	)
 	if err != nil {
 		t.Fatalf("failed to start mysql: %v", err)
@@ -46,10 +49,50 @@ func setupMySQL(t *testing.T) (dsn string, cleanup func()) {
 	return dsn, cleanup
 }
 
-func TestIntegration_RegisterLoginCreateTeamAndTasks(t *testing.T) {
-	dsn, cleanup := setupMySQL(t)
-	defer cleanup()
+func setupRedis(t *testing.T) (*redisv8.Client, func()) {
+	t.Helper()
+	ctx := context.Background()
 
+	redisContainer, err := tcredis.Run(ctx, "redis:7-alpine")
+	if err != nil {
+		t.Fatalf("failed to start redis container: %v", err)
+	}
+
+	host, err := redisContainer.Host(ctx)
+	if err != nil {
+		t.Fatalf("failed to get redis host: %v", err)
+	}
+	port, err := redisContainer.MappedPort(ctx, "6379/tcp")
+	if err != nil {
+		t.Fatalf("failed to get redis port: %v", err)
+	}
+
+	addr := fmt.Sprintf("%s:%s", host, port.Port())
+
+	rdb := redisv8.NewClient(&redisv8.Options{
+		Addr: addr,
+	})
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		t.Fatalf("failed to ping redis: %v", err)
+	}
+
+	cleanup := func() {
+		_ = rdb.Close()
+		_ = redisContainer.Terminate(ctx)
+	}
+
+	return rdb, cleanup
+}
+
+func TestIntegration_RegisterLoginCreateTeamAndTasks(t *testing.T) {
+	dsn, cleanupDB := setupMySQL(t)
+	defer cleanupDB()
+
+	rdb, cleanupRedis := setupRedis(t)
+	defer cleanupRedis()
+
+	// Инициализация GORM (используем алиас gormmysql)
 	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("connect: %v", err)
@@ -57,12 +100,6 @@ func TestIntegration_RegisterLoginCreateTeamAndTasks(t *testing.T) {
 	if err := db.AutoMigrate(&model.User{}, &model.Team{}, &model.TeamMember{}, &model.Task{}, &model.TaskHistory{}, &model.TaskComment{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
-	if rdb.Ping(context.Background()).Err() != nil {
-		t.Skip("Redis not available, skipping integration test")
-	}
-	defer rdb.Close()
 
 	cfg := &config.Config{
 		SecretKey: testSecretKey,
@@ -147,7 +184,7 @@ func TestIntegration_RegisterLoginCreateTeamAndTasks(t *testing.T) {
 		}
 	}
 
-	// 4) Список задач с team_id и пагинацией (page=1, page_size=2)
+	// 4) Список задач с пагинацией
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/tasks?team_id="+teamID+"&page=1&page_size=2", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err = app.Test(req)
@@ -199,7 +236,7 @@ func TestIntegration_RegisterLoginCreateTeamAndTasks(t *testing.T) {
 		t.Errorf("page 2: current=%d len(tasks)=%d", listResp.CurrentPage, len(listResp.Tasks))
 	}
 
-	// 6) Третья страница — одна запись
+	// 6) Третья страница
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/tasks?team_id="+teamID+"&page=3&page_size=2", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err = app.Test(req)

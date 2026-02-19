@@ -15,8 +15,6 @@ go tool cover -func=coverage.out
 
 ## Интеграционные тесты с testcontainers
 
-Требуется Docker и (для полного сценария) запущенный Redis на `localhost:6379`.
-
 ```bash
 go test -tags=integration ./tests/ -v -run Integration
 ```
