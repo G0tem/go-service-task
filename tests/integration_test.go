@@ -92,7 +92,7 @@ func TestIntegration_RegisterLoginCreateTeamAndTasks(t *testing.T) {
 	rdb, cleanupRedis := setupRedis(t)
 	defer cleanupRedis()
 
-	// Инициализация GORM (используем алиас gormmysql)
+	// Инициализация GORM
 	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("connect: %v", err)

@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// TaskHistory история задач
+// История задач
 type TaskHistory struct {
 	ID        uuid.UUID      `gorm:"primaryKey;type:char(36)" json:"id"`
 	TaskID    uuid.UUID      `gorm:"type:char(36);not null;index" json:"task_id"`

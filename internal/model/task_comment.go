@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// TaskComment stores comments for tasks.
+// Комментарии к задачам
 type TaskComment struct {
 	ID        uuid.UUID      `gorm:"primaryKey;type:char(36)" json:"id"`
 	TaskID    uuid.UUID      `gorm:"type:char(36);not null;index" json:"task_id"`

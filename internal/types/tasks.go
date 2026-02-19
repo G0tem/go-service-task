@@ -1,6 +1,6 @@
 package types
 
-// TaskCreateRequest описывает создание задачи.
+// Описывает создание задачи.
 type TaskCreateRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
@@ -9,7 +9,7 @@ type TaskCreateRequest struct {
 	Status      string `json:"status,omitempty"` // todo, in_progress, done, cancelled
 }
 
-// TaskUpdateRequest описывает обновление задачи.
+// Описывает обновление задачи.
 type TaskUpdateRequest struct {
 	Title       *string `json:"title,omitempty"`
 	Description *string `json:"description,omitempty"`
@@ -17,7 +17,7 @@ type TaskUpdateRequest struct {
 	AssigneeID  *string `json:"assignee_id,omitempty"`
 }
 
-// TaskResponse — упрощённое представление задачи.
+// Упрощённое представление задачи.
 type TaskResponse struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
@@ -28,7 +28,7 @@ type TaskResponse struct {
 	CreatedBy   string `json:"created_by"`
 }
 
-// TaskListResponse — список задач с пагинацией.
+// Список задач с пагинацией.
 type TaskListResponse struct {
 	Tasks        []TaskResponse `json:"tasks"`
 	CurrentPage  int            `json:"current_page"`
@@ -37,7 +37,7 @@ type TaskListResponse struct {
 	TotalRecords int64          `json:"total_records"`
 }
 
-// TaskHistoryItemResponse — элемент истории изменений задачи.
+// Элемент истории изменений задачи.
 type TaskHistoryItemResponse struct {
 	Field     string `json:"field"`
 	OldValue  string `json:"old_value"`

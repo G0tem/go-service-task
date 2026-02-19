@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// TeamMember represents membership of a user in a team with a role.
+// Привязка пользователя к команде с ролью
 type TeamMember struct {
 	ID        uuid.UUID      `gorm:"primaryKey;type:char(36)" json:"id"`
 	TeamID    uuid.UUID      `gorm:"type:char(36);not null;index:idx_team_user,unique" json:"team_id"`
